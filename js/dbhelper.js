@@ -1,3 +1,31 @@
+var results;
+  
+function add2db(data) {
+  var db;
+  results = data;
+  var idb = window.indexedDB;
+  var dbPromise = idb.open("database", 1);
+  dbPromise.onupgradeneeded = function(e) {
+    db = e.target.result;
+    if (!db.objectStoreNames.contains("restaurants")) {
+      var storeOS = db.createObjectStore("restaurants", {
+        keyPath: "id"
+      });
+    }
+  };
+  dbPromise.onsuccess = function(e) {
+    db = e.target.result;
+    var transaction = db.transaction(["restaurants"], "readwrite");
+    var store = transaction.objectStore("restaurants");
+    data.forEach(function(request) {
+      store.put(request);
+    });
+  };
+  dbPromise.onerror = function(e) {
+    console.dir(e);
+  };
+}
+
 /**
  * Common database helper functions.
  */
@@ -21,8 +49,8 @@ class DBHelper {
     xhr.onload = () => {
       if (xhr.status === 200) { // Got a success response from server!
         const json = JSON.parse(xhr.responseText);
-        const restaurants = json;
-        callback(null, restaurants);
+        add2db(json);
+        callback(null, results);
       } else { // Oops!. Got an error from server.
         const error = (`Request failed. Returned status of ${xhr.status}`);
         callback(error, null);
