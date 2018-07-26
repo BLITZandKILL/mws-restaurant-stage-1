@@ -8,8 +8,8 @@ class DBHelper {
    * Change this to restaurants.json file location on your server.
    */
   static get DATABASE_URL() {
-    const port = 8000 // Change this to your server port
-    return `http://localhost:${port}/data/restaurants.json`;
+    const port = 1337 // Change this to your server port
+    return `http://localhost:${port}/restaurants`;
   }
 
   /**
@@ -21,7 +21,7 @@ class DBHelper {
     xhr.onload = () => {
       if (xhr.status === 200) { // Got a success response from server!
         const json = JSON.parse(xhr.responseText);
-        const restaurants = json.restaurants;
+        const restaurants = json;
         callback(null, restaurants);
       } else { // Oops!. Got an error from server.
         const error = (`Request failed. Returned status of ${xhr.status}`);
@@ -35,19 +35,18 @@ class DBHelper {
    * Fetch a restaurant by its ID.
    */
   static fetchRestaurantById(id, callback) {
-    // fetch all restaurants with proper error handling.
-    DBHelper.fetchRestaurants((error, restaurants) => {
-      if (error) {
-        callback(error, null);
-      } else {
-        const restaurant = restaurants.find(r => r.id == id);
-        if (restaurant) { // Got the restaurant
-          callback(null, restaurant);
-        } else { // Restaurant does not exist in the database
-          callback('Restaurant does not exist', null);
-        }
+    let xhr = new XMLHttpRequest();
+    xhr.open('GET', DBHelper.DATABASE_URL + '/' + id);
+    xhr.onload = () => {
+      if (xhr.status === 200) { // Got a success response from server!
+        const json = JSON.parse(xhr.responseText);
+        const restaurant = json;
+        callback(null, restaurant);
+      } else { // Oops!. Got an error from server.
+        callback('Restaurant does not exist', null);
       }
-    });
+    };
+    xhr.send();
   }
 
   /**
@@ -112,11 +111,16 @@ class DBHelper {
       if (error) {
         callback(error, null);
       } else {
-        // Get all neighborhoods from all restaurants
-        const neighborhoods = restaurants.map((v, i) => restaurants[i].neighborhood)
-        // Remove duplicates from neighborhoods
-        const uniqueNeighborhoods = neighborhoods.filter((v, i) => neighborhoods.indexOf(v) == i)
-        callback(null, uniqueNeighborhoods);
+        if (restaurants)
+        {
+          // Get all neighborhoods from all restaurants
+          const neighborhoods = restaurants.map((v, i) => restaurants[i].neighborhood)
+          // Remove duplicates from neighborhoods
+          const uniqueNeighborhoods = neighborhoods.filter((v, i) => neighborhoods.indexOf(v) == i)
+          callback(null, uniqueNeighborhoods);
+        } else {
+          console.log('No restaurants in array... ' + restaurants);
+        }
       }
     });
   }
@@ -130,11 +134,16 @@ class DBHelper {
       if (error) {
         callback(error, null);
       } else {
-        // Get all cuisines from all restaurants
-        const cuisines = restaurants.map((v, i) => restaurants[i].cuisine_type)
-        // Remove duplicates from cuisines
-        const uniqueCuisines = cuisines.filter((v, i) => cuisines.indexOf(v) == i)
-        callback(null, uniqueCuisines);
+        if (restaurants)
+        {
+          // Get all cuisines from all restaurants
+          const cuisines = restaurants.map((v, i) => restaurants[i].cuisine_type)
+          // Remove duplicates from cuisines
+          const uniqueCuisines = cuisines.filter((v, i) => cuisines.indexOf(v) == i)
+          callback(null, uniqueCuisines);
+        } else {
+          console.log('No restaurants in array... ' + restaurants);
+        }
       }
     });
   }
@@ -150,16 +159,16 @@ class DBHelper {
    * Restaurant image URL.
    */
   static imageUrlForRestaurant(restaurant) {
-	var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
-	if (w < 201) {
-		return (`/img/${restaurant.id}_200.jpg`);
-	} else if (w < 551) {
-		return (`/img/${restaurant.id}_550.jpg`);
-	} else if (w < 801) {
-		return (`/img/${restaurant.id}_800.jpg`);
-	} else {
-		return (`/img/${restaurant.photograph}`);
-	}
+    var w = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+    if (w < 201) {
+      return (`/img/${restaurant.id}_200.jpg`);
+    } else if (w < 551) {
+      return (`/img/${restaurant.id}_550.jpg`);
+    } else if (w < 801) {
+      return (`/img/${restaurant.id}_800.jpg`);
+    } else {
+      return (`/img/${restaurant.id}.jpg`);
+    }
   }
 
   /**
@@ -172,7 +181,7 @@ class DBHelper {
       alt: restaurant.name,
       url: DBHelper.urlForRestaurant(restaurant)
       })
-	  marker.options.keyboard = false;
+    marker.options.keyboard = false;
       marker.addTo(newMap);
     return marker;
   } 
