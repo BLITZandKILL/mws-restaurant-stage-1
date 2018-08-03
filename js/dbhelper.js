@@ -26,6 +26,17 @@ function add2db(data) {
   };
 }
 
+function fetchIdbRestaurants(data) {
+  OpenIDB().then((db) => {
+    const dbStore = 'restaurants';
+
+    const transaction = db.transaction(dbStore);
+    const store = transaction.objectStore(dbStore);
+
+    return store.getAll();
+  })
+}
+
 /**
  * Common database helper functions.
  */
@@ -81,6 +92,12 @@ class DBHelper {
    * Fetch restaurants by a cuisine type with proper error handling.
    */
   static fetchRestaurantByCuisine(cuisine, callback) {
+    fetchIdbRestaurants((error, restaurants) => {
+      if (!error){
+        const results = restaurants.filter(r => r.cuisine_type == cusine);
+        callback(null, results);
+      }
+    })
     // Fetch all restaurants  with proper error handling
     DBHelper.fetchRestaurants((error, restaurants) => {
       if (error) {
