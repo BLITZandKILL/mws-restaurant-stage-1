@@ -89,7 +89,7 @@ class DBHelper {
   static fetchApiRestaurants(callback) {
     fetch(DBHelper.DATABASE_URL)
       .then( response => response.json() )
-      .catch( err => DBHelper.fetchIdbRestaurants() )
+      .catch( err => DBHelper.fetchIdbRestaurants(function(err, result){ callback(null, result); }) )
       .then( response => {
         const restaurants = response;
         DBHelper.add2db(restaurants);
@@ -105,8 +105,11 @@ class DBHelper {
    * Fetch all restaurants.
    */
   static fetchRestaurants(callback) {
-    var restuarants = DBHelper.fetchApiRestaurants();
-    callback(null, restaurants);
+    DBHelper.fetchApiRestaurants(function(err, result) {
+      if (!err){
+        callback(null, result);
+      }
+    });
   }
 
   /**
