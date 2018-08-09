@@ -1,9 +1,63 @@
 var results;
 
+const dbPromise = idb.open('database', 1, upgradeDB => {
+  upgradeDB.createObjectStore('restaurants', {
+    keyPath: 'id'
+  });
+});
+
+const idbKeyval = {
+  get(key) {
+    return dbPromise.then(db => {
+      return db.transaction('restaurants')
+        .objectStore('restaurants').get(key);
+    });
+  },
+  set(key, val) {
+    return dbPromise.then(db => {
+      const tx = db.transaction('restaurants', 'readwrite');
+      tx.objectStore('restaurants').put(val, key);
+      return tx.complete;
+    });
+  },
+  delete(key) {
+    return dbPromise.then(db => {
+      const tx = db.transaction('restaurants', 'readwrite');
+      tx.objectStore('restaurants').delete(key);
+      return tx.complete;
+    });
+  },
+  clear() {
+    return dbPromise.then(db => {
+      const tx = db.transaction('restaurants', 'readwrite');
+      tx.objectStore('restaurants').clear();
+      return tx.complete;
+    });
+  },
+  keys() {
+    return dbPromise.then(db => {
+      const tx = db.transaction('restaurants');
+      const keys = [];
+      const store = tx.objectStore('restaurants');
+
+      // This would be store.getAllKeys(), but it isn't supported by Edge or Safari.
+      // openKeyCursor isn't supported by Safari, so we fall back
+      (store.iterateKeyCursor || store.iterateCursor).call(store, cursor => {
+        if (!cursor) return;
+        keys.push(cursor.key);
+        cursor.continue();
+      });
+
+      return tx.complete.then(() => keys);
+    });
+  }
+};
+
 /**
  * Common database helper functions.
  */
 class DBHelper {
+
   /**
    * Database URL.
    * Change this to restaurants.json file location on your server.
@@ -13,81 +67,29 @@ class DBHelper {
     return `http://localhost:${port}/restaurants`;
   }
 
-  static get dbPromise() {
-    return this.openDb();
-  }
-
-  static openDb() {
-    var idb = window.indexedDB;
-    //check for support
-    if (!('indexedDB' in window)) {
-      return Promise.resolve();
-    }
-    return idb.open('database', 1, upgradeDb => {
-      upgradeDb.createObjectStore('restaurants', {
-        keyPath: 'id'
-      });
-    });
-  }
-
   static add2db(data) {
-    var db;
-    results = data;
-    var idb = window.indexedDB;
-    var dbPromise = idb.open("database", 1);
-    dbPromise.onupgradeneeded = function(e) {
-      db = e.target.result;
-      if (!db.objectStoreNames.contains("restaurants")) {
-        var storeOS = db.createObjectStore("restaurants", {
-          keyPath: "id"
-        });
-      }
-    };
-    dbPromise.onsuccess = function(e) {
-      db = e.target.result;
-      var transaction = db.transaction(["restaurants"], "readwrite");
-      var store = transaction.objectStore("restaurants");
+    dbPromise.then(db => {
+      const tx = db.transaction('restaurants', 'readwrite');
+      var store = tx.objectStore('restaurants');
       data.forEach(function(request) {
         store.put(request);
       });
-    };
-    dbPromise.onerror = function(e) {
-      console.dir(e);
-    };
+      return store.complete;
+    });
   }
 
   static fetchIdbRestaurants(db) {
-    const idb = db.transaction('restaurants');
-    const store = idb.objectStore('restaurants');
-    store.getAll().then(restaurants => {
-      this.restaurants = restaurants;
+    dbPromise.then(db => {
+      const restaurants = db.transaction('restaurants')
+        .objectStore('restaurants').getAll();
+      callback(null, restaurants);
     });
-    return idb.complete;
   }
 
   static fetchApiRestaurants(callback) {
-    let xhr = new XMLHttpRequest();
-    xhr.open('GET', DBHelper.DATABASE_URL);
-    xhr.onload = () => {
-      if (xhr.status === 200) { // Got a success response from server!
-        const json = JSON.parse(xhr.responseText);
-        DBHelper.add2db(json);
-        callback(null, results);
-      } else { // Oops!. Got an error from server.
-        const error = (`Request failed. Returned status of ${xhr.status}`);
-        callback(error, null);
-      }
-    };
-    xhr.send();
-  }
-
-  /**
-   * Fetch all restaurants.
-   */
-  static fetchRestaurants(callback) {
     fetch(DBHelper.DATABASE_URL)
       .then( response => response.json() )
-      .catch( err => console.log(`Error fetching data from API: ${err}`) )
+      .catch( err => DBHelper.fetchIdbRestaurants() )
       .then( response => {
         const restaurants = response;
         DBHelper.add2db(restaurants);
@@ -97,6 +99,14 @@ class DBHelper {
         const error = err;
         callback(error, null); 
       })
+  }
+
+  /**
+   * Fetch all restaurants.
+   */
+  static fetchRestaurants(callback) {
+    var restuarants = DBHelper.fetchApiRestaurants();
+    callback(null, restaurants);
   }
 
   /**
