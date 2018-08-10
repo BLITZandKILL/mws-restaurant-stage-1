@@ -78,11 +78,13 @@ class DBHelper {
     });
   }
 
-  static fetchIdbRestaurants(db) {
+  static fetchIdbRestaurants(callback) {
     dbPromise.then(db => {
       const restaurants = db.transaction('restaurants')
-        .objectStore('restaurants').getAll();
-      callback(null, restaurants);
+        .objectStore('restaurants').getAll()
+        .then( response => {
+          callback(null, response);
+        });
     });
   }
 
